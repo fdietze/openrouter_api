@@ -25,7 +25,7 @@ pub struct Message {
 }
 
 /// Chat completion request matching the OpenRouter API schema.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ChatCompletionRequest {
     /// The model ID to use.
     pub model: String,
