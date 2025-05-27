@@ -15,7 +15,11 @@ categories = ["api-bindings", "asynchronous"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-reqwest = { version = "0.12.5", features = ["json", "stream"] }
+reqwest = { version = "0.12.5", default_features = false, features = [
+  "json",
+  "rustls-tls",
+  "stream",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
@@ -29,14 +33,26 @@ tracing = { version = "0.1", optional = true }
 
 # Platform-specific dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1", features = ["full"] } # For native async runtime, time, sync primitives
-tokio-util = { version = "0.7", features = ["codec", "io"] } # For adapting streams
+tokio = { version = "1", features = [
+  "full",
+] } # For native async runtime, time, sync primitives
+tokio-util = { version = "0.7", features = [
+  "codec",
+  "io",
+] } # For adapting streams
 uuid = { version = "1.8.0", features = ["v4"] } # Native UUID generation
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-tokio-util = { version = "0.7", features = ["codec"] } # Only codec feature for WASM
-uuid = { version = "1.8.0", features = ["v4", "js"] } # WASM UUID generation using JS crypto
-gloo-timers = { version = "0.2.6", features = ["futures"] } # For WASM-compatible async sleep/timeout
+tokio-util = { version = "0.7", features = [
+  "codec",
+] } # Only codec feature for WASM
+uuid = { version = "1.8.0", features = [
+  "v4",
+  "js",
+] } # WASM UUID generation using JS crypto
+gloo-timers = { version = "0.2.6", features = [
+  "futures",
+] } # For WASM-compatible async sleep/timeout
 # For wasm32, reqwest uses wasm-bindgen-futures internally.
 # Consider adding wasm-specific utilities if needed:
 # console_error_panic_hook = { version = "0.1.7", optional = true }
@@ -73,3 +89,4 @@ lto = true
 codegen-units = 1
 panic = "unwind"
 strip = true
+
