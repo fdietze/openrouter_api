@@ -408,11 +408,15 @@ impl OpenRouterClient<NoAuth> {
         let headers = self.config.build_headers()?;
 
         // Build a client with retry capabilities
-        let client_builder = reqwest::Client::builder()
-            .timeout(self.config.timeout)
-            .default_headers(headers);
+        let mut client_builder = reqwest::Client::builder();
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            client_builder = client_builder.timeout(self.config.timeout);
+        }
+        
         let http_client = client_builder
+            .default_headers(headers)
             .build()
             .map_err(|e| Error::ConfigError(format!("Failed to create HTTP client: {}", e)))?;
 

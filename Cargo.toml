@@ -11,30 +11,56 @@ readme = "README.md"
 keywords = ["openrouter", "ai", "api-client"]
 categories = ["api-bindings", "asynchronous"]
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.12.5", features = ["json", "stream"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1", features = ["full"] }
 thiserror = "1.0"
-url = "2.3"
-futures = "0.3"
+url = "2.5.2"
+futures = "0.3" # Provides futures::lock::Mutex for platform-agnostic async locking
 async-stream = "0.3"
-tokio-util = { version = "0.7", features = ["codec", "io"] }
-uuid = "1.16.0"
-zeroize = { version = "1.8", features = ["derive"] }
-regex = "1.11"
+# uuid is platform-specific, see below
+zeroize = { version = "1.7.0", features = ["derive"] }
+regex = "1.10.5"
 tracing = { version = "0.1", optional = true }
+
+# Platform-specific dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["full"] } # For native async runtime, time, sync primitives
+tokio-util = { version = "0.7", features = ["codec", "io"] } # For adapting streams
+uuid = { version = "1.8.0", features = ["v4"] } # Native UUID generation
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio-util = { version = "0.7", features = ["codec"] } # Only codec feature for WASM
+uuid = { version = "1.8.0", features = ["v4", "js"] } # WASM UUID generation using JS crypto
+gloo-timers = { version = "0.2.6", features = ["futures"] } # For WASM-compatible async sleep/timeout
+# For wasm32, reqwest uses wasm-bindgen-futures internally.
+# Consider adding wasm-specific utilities if needed:
+# console_error_panic_hook = { version = "0.1.7", optional = true }
+# console_log = { version = "1.0", optional = true }
+# getrandom = { version = "0.2", features = ["js"] } # uuid v1.8.0 with "js" feature should handle this via `uuid`
 
 [dev-dependencies]
 tokio-test = "0.4"
 wiremock = "0.5"
 test-case = "3.3"
+# If you add WASM tests:
+# wasm-bindgen-test = "0.3"
 
 [features]
-default = ["rustls"]
+default = ["rustls"] # Native builds will use rustls by default.
+# For WASM builds, use `cargo build --target wasm32-unknown-unknown --no-default-features`
+# This avoids compiling native TLS backends (rustls, native-tls) for WASM.
+# On WASM, reqwest uses the browser's Fetch API for HTTPS.
+
+# Native-only TLS features for reqwest
 rustls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
+
+# Tracing support (optional, platform-agnostic facade)
 tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]

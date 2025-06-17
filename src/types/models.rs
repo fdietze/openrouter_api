@@ -78,5 +78,5 @@ pub struct ModelsRequest {
 #[derive(Debug, Deserialize)]
 pub struct ModelsResponse {
     /// A list of available models.
-    pub models: Vec<ModelInfo>,
+    pub data: Vec<ModelInfo>,
 }

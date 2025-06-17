@@ -1,6 +1,6 @@
 //! MCP client implementation for connecting to MCP servers.
 
-use tokio::sync::Mutex;
+use futures::lock::Mutex; // Changed from tokio::sync::Mutex
 use url::Url;
 
 use crate::error::{Error, Result};
@@ -31,7 +31,8 @@ impl MCPClient {
 
     /// Generate a simple request ID
     fn generate_id() -> String {
-        // Use a simple timestamp-based ID instead of UUID
+        // Use a simple timestamp-based ID instead of UUID for now,
+        // or switch to a proper UUID if platform-specific features are sorted.
         use std::time::{SystemTime, UNIX_EPOCH};
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -123,14 +124,14 @@ impl MCPClient {
         // Check if initialized
         self.ensure_initialized().await?;
 
-        let response = JsonRpcResponse {
+        let response_payload = JsonRpcResponse { // Renamed to avoid conflict if this was intended to be a request
             jsonrpc: "2.0".to_string(),
             id,
             result: Some(serde_json::to_value(result).map_err(Error::SerializationError)?),
             error: None,
         };
 
-        self.send_response(response).await
+        self.send_response_payload(response_payload).await // Changed to send_response_payload
     }
 
     /// Get the server capabilities.
@@ -149,30 +150,40 @@ impl MCPClient {
             .map_err(Error::HttpError)?;
 
         if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
             return Err(Error::ApiError {
-                code: response.status().as_u16(),
-                message: response.text().await.unwrap_or_default(),
+                code: status.as_u16(),
+                message: text,
                 metadata: None,
             });
         }
 
         let response_body = response.text().await.map_err(Error::HttpError)?;
-        let response: JsonRpcResponse =
-            serde_json::from_str(&response_body).map_err(Error::SerializationError)?;
-
-        Ok(response)
+        serde_json::from_str(&response_body).map_err(|e| {
+            Error::SerializationError(e)
+        })
     }
 
-    /// Send a JSON-RPC response to the server.
-    async fn send_response(&self, response: JsonRpcResponse) -> Result<()> {
-        let _response = self
+    /// Send a JSON-RPC response payload to the server.
+    async fn send_response_payload(&self, payload: JsonRpcResponse) -> Result<()> { // Renamed from send_response
+        let res = self // Renamed to avoid conflict
             .client
             .post(self.server_url.clone())
-            .json(&response)
+            .json(&payload)
             .send()
             .await
             .map_err(Error::HttpError)?;
 
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+             return Err(Error::ApiError {
+                code: status.as_u16(),
+                message: text,
+                metadata: None, // Or some other way to get metadata if available
+            });
+        }
         Ok(())
     }
 
@@ -184,7 +195,7 @@ impl MCPClient {
         // Check for errors
         if let Some(error) = response.error {
             return Err(Error::ApiError {
-                code: error.code as u16,
+                code: error.code as u16, // Assuming JsonRpcError has a u16 or similar code
                 message: error.message,
                 metadata: error.data,
             });
